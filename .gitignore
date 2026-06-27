@@ -1,0 +1,70 @@
+# ── Python build & bytecode ───────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+build/
+dist/
+wheels/
+*.egg-info/
+.eggs/
+
+# ── Virtual environments ──────────────────────────────────────
+# These exist for every interpreter we've used in this folder.
+.venv/
+past-life/
+venv/
+env/
+.tox/
+
+# ── Local secrets / env ───────────────────────────────────────
+.env
+.env.*
+!.env.example
+# Throwaway script with a hard-coded OpenAI API key — must NEVER be
+# committed. Either delete it, or move the key to the OPENAI_API_KEY
+# environment variable before tracking the file.
+openai_key_test.py
+
+# ── User data — DO NOT commit ────────────────────────────────
+# Each user's cached past-life reflection is saved as one JSON
+# file under past_life_storage/. The append-only interaction
+# log lives in the same folder. Both are user data, not source.
+past_life_storage/
+
+# ── Run-time logs ─────────────────────────────────────────────
+logs/
+*.log
+
+# ── Test outputs ──────────────────────────────────────────────
+# The 50-case test scripts in testing/ drop output JSON + text
+# reports next to the project root. Keep the scripts, drop the
+# generated artefacts.
+test_50_users_output.json
+test_50_users_live_output.json
+test_50_users_live_v2_output.json
+test_50_users_live_report.txt
+test_50_users_live_v2_report.txt
+testing/test_50_users_live*.log
+testing/test_50_users_live*_output.json
+testing/test_50_users_live*_report.txt
+testing/test_50_users_output.json
+
+# ── Editor / IDE ──────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# ── Backups ───────────────────────────────────────────────────
+*.bak
+Past_Life.py.bak
+
+# ── Hugging Face model cache (it's ~10 GB) ───────────────────
+.cache/
+huggingface/
+
+# ── uv lock ───────────────────────────────────────────────────
+# Keep uv.lock OUT of the repo for now since torch's cu128 index
+# makes locks platform-specific. Re-enable if you standardise.
+uv.lock
