@@ -68,3 +68,7 @@ huggingface/
 # Keep uv.lock OUT of the repo for now since torch's cu128 index
 # makes locks platform-specific. Re-enable if you standardise.
 uv.lock
+
+# Untracked dev-only files
+main.py
+testing/
