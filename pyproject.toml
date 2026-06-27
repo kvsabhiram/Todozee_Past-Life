@@ -1,0 +1,37 @@
+[project]
+name = "past-life"
+version = "0.1.0"
+description = "Past Life (Gatha Janma) Insight Generator — local Gemma 4 + FastAPI + real astrology"
+readme = "README.md"
+requires-python = ">=3.13"
+
+# ── Runtime dependencies ────────────────────────────────────────────
+# torch must come from the CUDA-12.8 wheel index for RTX 5090 (sm_120).
+# Reinstall torch with:
+#   pip install --index-url https://download.pytorch.org/whl/cu128 torch torchvision torchaudio
+# A CPU/cu130-mismatched build will silently fall back to CPU and slow
+# generation from ~5 s to ~170 s per insight.
+dependencies = [
+    # ── Web layer ─────────────────────────────
+    "fastapi>=0.136.1",
+    "uvicorn[standard]>=0.46.0",
+    "pydantic>=2.0",
+
+    # ── Local LLM (Gemma 4 via transformers) ──
+    # Pinned at minimum versions that support the gemma4 architecture
+    # and AutoModelForImageTextToText / AutoProcessor.
+    "transformers>=5.0",
+    "accelerate>=1.0",
+    "torch>=2.10",
+    "pillow>=10.0",          # transformers processor pulls this in
+
+    # ── Real astrology ────────────────────────
+    "kerykeion>=5.10",       # Sun / Moon / Ascendant (Western tropical)
+    "pyswisseph>=2.10",      # Swiss Ephemeris — Lahiri ayanamsa for Vedic
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.5",
+    "mypy>=1.10",
+]

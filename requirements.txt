@@ -1,0 +1,28 @@
+# Runtime dependencies for the Past Life Insight API.
+#
+# IMPORTANT — INSTALL ORDER for GPU acceleration on RTX 5090 (sm_120):
+#
+#   1) Install torch from the CUDA-12.8 wheel index FIRST:
+#        pip install --index-url https://download.pytorch.org/whl/cu128 \
+#            torch torchvision torchaudio
+#
+#   2) Then everything else from this file:
+#        pip install -r requirements.txt
+#
+# Skip step 1 and torch will silently grab a build mismatched to the driver,
+# inference falls back to CPU (~170 s per generation vs ~5 s on GPU).
+
+# ── Web layer ───────────────────────────────
+fastapi>=0.136.1
+uvicorn[standard]>=0.46.0
+pydantic>=2.0
+
+# ── Local LLM (Gemma 4 via Hugging Face transformers) ──
+transformers>=5.0
+accelerate>=1.0
+torch>=2.10
+pillow>=10.0
+
+# ── Real astrology ──────────────────────────
+kerykeion>=5.10
+pyswisseph>=2.10

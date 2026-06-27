@@ -1,0 +1,427 @@
+"""Mystical vocabulary pool — 100+ words per zodiac sign.
+
+The prompt does not see this entire pool — that would bloat the payload
+and tempt the model to list everything. Instead, :func:`select_mystic_words`
+picks a deterministic ~25-word subset per user (seeded by user_id) and
+hands that smaller palette to the model with the instruction to weave in
+3–6 of them naturally.
+
+Each sign's pool is themed around its classical archetype (element,
+ruler, mythology) but kept readable — no obscure jargon, no jargon
+explanations needed.
+"""
+
+from __future__ import annotations
+
+import hashlib
+
+# ─── Aries (Mesha) — Fire / Mars / warrior, dawn, courage ──────────
+ARI = [
+    "warrior", "flame bearer", "fire walker", "dawn rider", "vanguard",
+    "pioneer", "torch carrier", "ram-soul", "fire forger", "blaze runner",
+    "dawn breaker", "courage keeper", "lion-hearted", "sword singer",
+    "ember sage", "fire tongue", "kindler", "flame mystic", "sun strider",
+    "hearth keeper", "war poet", "fearless one", "edge walker",
+    "lightning-blooded", "red star", "mars-touched", "battle blessed",
+    "frontier seer", "war drum carrier", "fire dancer", "sacred striker",
+    "flame veiled", "embered prophet", "ascendant flame", "dawn warrior",
+    "fire seer", "lit soul", "ember oracle", "scarlet seer", "war oracle",
+    "kindling guardian", "fire pulsed", "hearth flame", "vanguard mystic",
+    "blaze healer", "sun born", "dawn knight", "fierce dreamer",
+    "flame tender", "lightning bearer", "warrior poet", "sacred flame",
+    "mountain fire", "hearthfire keeper", "war priestess", "sun blooded",
+    "ember witch", "flame siren", "fire bringer", "ember keeper",
+    "flame whisper", "dawn runner", "blazing pilgrim", "ember bearer",
+    "fire priest", "flame caller", "soul spark", "war singer",
+    "ember spirit", "sacred ember", "hearth lit", "war hymn",
+    "fire witness", "ember witness", "fire seeker", "ember seeker",
+    "fire light", "dawn light", "dawn priest", "ember soul", "flame soul",
+    "kindled one", "sparked one", "flame chosen", "dawn chosen",
+    "fire eyed", "ember eyed", "lit one", "kindled spirit", "fire breath",
+    "fire knight", "ember knight", "flame walker", "ember walker",
+    "fire keeper", "sun spear", "hearth blaze", "ember whisper",
+    "flame-borne", "dawn singer", "beacon", "flame guard", "march drum",
+    "ember-marked", "brave heart", "ram dancer", "ram singer",
+]
+
+# ─── Taurus (Vrishabha) — Earth / Venus / abundance, garden, ox ────
+TAU = [
+    "earth healer", "garden keeper", "ox-spirited", "soil-soul",
+    "root tender", "harvest priest", "slow walker", "abundance bearer",
+    "blossom keeper", "hearth guardian", "valley dweller", "deep-rooted",
+    "vine weaver", "honey gatherer", "grove tender", "meadow soul",
+    "orchard mystic", "seed keeper", "earth singer", "venus-touched",
+    "beauty seer", "sensual sage", "garden mystic", "soil whisperer",
+    "root walker", "slow flame", "patient keeper", "vineyard priest",
+    "earth oracle", "grain holder", "vine prophet", "honey priest",
+    "blossom oracle", "earth witness", "soil witness", "garden witness",
+    "root mystic", "garden monk", "garden hermit", "slow-burning",
+    "deep root", "garden seer", "blossom seer", "hearth witness",
+    "garden warden", "root warden", "grove warden", "earth warden",
+    "soil warden", "vine warden", "slow priest", "slow oracle",
+    "garden priest", "garden oracle", "soil priest", "soil oracle",
+    "garden mother", "soil mother", "root mother", "grove mother",
+    "blossom mother", "hive keeper", "bee whisperer", "fruit bearer",
+    "orchard guardian", "hearth-tender", "kiln-tender", "mountain root",
+    "hill keeper", "valley keeper", "pasture keeper", "herd keeper",
+    "ox keeper", "ember-of-earth", "garden moon", "garden sun",
+    "garden star", "garden compass", "soil compass", "root compass",
+    "slow seer", "patient seer", "patient one", "slow one",
+    "deep wanderer", "grain priestess", "grape priest", "olive keeper",
+    "olive seer", "vine seer", "vine singer", "vine dancer",
+    "garden dancer", "root dancer", "slow dancer", "slow dreamer",
+    "root dreamer", "soil dreamer", "garden dreamer", "vineyard dreamer",
+    "blossom dreamer", "root sleeper", "soil mystic", "slow keeper",
+    "abundant one", "fertile one", "deep-souled",
+]
+
+# ─── Gemini (Mithuna) — Air / Mercury / twin, voice, story ─────────
+GEM = [
+    "messenger", "storyteller", "twin-souled", "voice carrier",
+    "breath weaver", "word singer", "oracle of wind", "message bearer",
+    "lighter of thought", "swift speaker", "riddle keeper", "breath dancer",
+    "voice mystic", "story sage", "words priest", "language seer",
+    "mercury-touched", "quick-tongued", "sky messenger", "air walker",
+    "breath whisper", "word whisper", "syllable singer", "page turner",
+    "library mystic", "scribe priest", "scribe mystic", "scroll keeper",
+    "librarian seer", "word weaver", "sentence singer", "riddle priest",
+    "message dancer", "twin keeper", "mirror twin", "mirror seer",
+    "mirror mystic", "dual soul", "two-voiced", "two-eyed seer",
+    "wind walker", "wind dancer", "breath bearer", "voice bearer",
+    "story keeper", "story dancer", "story dreamer", "story singer",
+    "tale weaver", "tale teller", "tale dancer", "voice prophet",
+    "story prophet", "news bringer", "light bringer", "light singer",
+    "light dancer", "swift dancer", "swift singer", "swift seer",
+    "swift mystic", "wind seer", "wind mystic", "wind oracle",
+    "breath oracle", "voice oracle", "message oracle", "word oracle",
+    "story oracle", "breath chosen", "voice chosen", "message chosen",
+    "word chosen", "story chosen", "riddle chosen", "wind chosen",
+    "sky chosen", "page seeker", "scroll seeker", "breath seeker",
+    "voice seeker", "word seeker", "story seeker", "ink keeper",
+    "parchment keeper", "twin walker", "twin dancer", "twin singer",
+    "twin dreamer", "twin seer", "twin mystic", "mirror walker",
+    "mirror dancer", "mirror singer", "mirror dreamer", "ink mystic",
+    "ink priest", "ink oracle", "dual dreamer", "dual seer",
+    "dual walker", "dual dancer", "sky-tongued", "wind-tongued",
+    "breath-tongued",
+]
+
+# ─── Cancer (Karka) — Water / Moon / nurturer, hearth, tide ────────
+CAN = [
+    "moon keeper", "healer", "nurturer", "tide reader", "shell keeper",
+    "home maker", "hearth mother", "hearth father", "water bearer of tears",
+    "soft-hearted", "moon-touched", "water singer", "water dancer",
+    "water priest", "water mystic", "water seer", "water oracle",
+    "water dreamer", "water walker", "tide mystic", "tide seer",
+    "tide dancer", "tide singer", "tide walker", "tide dreamer",
+    "tide oracle", "tide priest", "moon walker", "moon dancer",
+    "moon singer", "moon dreamer", "moon mystic", "moon seer",
+    "moon oracle", "moon priest", "shell mystic", "shell seer",
+    "shell walker", "shell singer", "shell dreamer", "crab-souled",
+    "crab walker", "home keeper", "family keeper", "ancestor keeper",
+    "ancestor mystic", "ancestor seer", "ancestor priest",
+    "ancestor oracle", "ancestor singer", "ancestor dancer",
+    "ancestor dreamer", "lullaby singer", "lullaby keeper",
+    "lullaby mystic", "womb keeper", "womb mystic", "womb seer",
+    "soul nurser", "soul nurturer", "soul cradle", "soul rocker",
+    "motherly one", "fatherly one", "child-keeper", "child-singer",
+    "child-blesser", "soft hands", "soft eyes", "soft voice",
+    "gentle hands", "gentle eyes", "gentle voice", "hearth keeper",
+    "hearth singer", "hearth dancer", "hearth mystic", "hearth seer",
+    "hearth oracle", "hearth priest", "hearth dreamer", "hearth walker",
+    "ocean mother", "ocean walker", "ocean singer", "ocean dancer",
+    "ocean dreamer", "ocean priest", "ocean mystic", "ocean seer",
+    "ocean oracle", "brackish dreamer", "salt walker", "salt dreamer",
+    "salt singer", "salt dancer", "salt seer", "salt mystic",
+    "salt oracle", "salt priest", "pearl keeper", "pearl mystic",
+    "pearl seer", "pearl oracle", "river mother", "river keeper",
+]
+
+# ─── Leo (Simha) — Fire / Sun / sovereign, light, lion ─────────────
+LEO = [
+    "sun walker", "light bearer", "royal soul", "sun-touched",
+    "lion-hearted", "sovereign", "throne keeper", "flame singer",
+    "hearth king", "hearth queen", "golden one", "golden walker",
+    "golden singer", "golden dancer", "golden seer", "golden mystic",
+    "golden oracle", "golden priest", "golden dreamer", "gold-souled",
+    "mane-souled", "mane shaker", "mane keeper", "mane walker",
+    "mane dancer", "mane singer", "mane mystic", "lion walker",
+    "lion dancer", "lion singer", "lion mystic", "lion seer",
+    "lion oracle", "lion priest", "lion dreamer", "lion keeper",
+    "lion warrior", "lion sage", "lion hermit", "sun-tongued",
+    "sun-eyed", "sun-spirited", "sun-marked", "sun-blessed",
+    "sun-blooded", "sun-born", "sun-souled", "sun-chosen", "sun-crowned",
+    "crown keeper", "crown singer", "crown dancer", "crown bearer",
+    "crown mystic", "crown seer", "crown oracle", "crown priest",
+    "crown dreamer", "radiant one", "radiant walker", "radiant singer",
+    "radiant dancer", "radiant seer", "radiant mystic", "radiant oracle",
+    "radiant priest", "radiant dreamer", "child of sun", "sun child",
+    "light child", "flame child", "golden child", "royal child",
+    "royal walker", "royal singer", "royal dancer", "royal seer",
+    "royal mystic", "royal oracle", "royal priest", "royal dreamer",
+    "generous one", "generous walker", "generous singer",
+    "generous dancer", "generous seer", "generous mystic",
+    "hearthfire-crowned", "hearth sovereign", "joy keeper", "joy singer",
+    "joy dancer", "joy mystic", "joy seer", "joy oracle", "joy priest",
+    "joy dreamer", "big-hearted", "big-souled", "big-spirited",
+    "big-handed", "sun-handed", "sun-knighted", "sun-priestess",
+    "sun-priest", "dawn-king", "dawn-queen", "light king", "light queen",
+]
+
+# ─── Virgo (Kanya) — Earth / Mercury / sage, harvest, craft ────────
+VIR = [
+    "sage", "sacred healer", "harvest priest", "harvest priestess",
+    "harvest mystic", "harvest seer", "harvest oracle", "harvest dreamer",
+    "harvest singer", "harvest dancer", "harvest walker", "harvest keeper",
+    "harvest warden", "virgin priestess", "pure-hearted", "ritual keeper",
+    "ritual singer", "ritual dancer", "ritual mystic", "ritual seer",
+    "ritual oracle", "ritual priest", "ritual dreamer", "ritual walker",
+    "mercury-touched", "craft keeper", "craft singer", "craft dancer",
+    "craft mystic", "craft seer", "craft oracle", "craft priest",
+    "craft dreamer", "craft walker", "herb keeper", "herb singer",
+    "herb dancer", "herb mystic", "herb seer", "herb oracle",
+    "herb priest", "herb dreamer", "herb walker", "scribe seer",
+    "scribe mystic", "scribe priest", "scribe oracle", "scribe dreamer",
+    "scribe walker", "scribe singer", "scribe dancer", "scroll keeper",
+    "scroll seer", "scroll mystic", "scroll priest", "scroll oracle",
+    "scroll dreamer", "scroll walker", "scroll singer", "scroll dancer",
+    "healer of small things", "healer of details", "healer of patterns",
+    "healer of order", "mosaic mystic", "mosaic seer", "mosaic oracle",
+    "mosaic priest", "mosaic dreamer", "mosaic walker", "mosaic singer",
+    "mosaic dancer", "page keeper", "page seer", "page mystic",
+    "page priest", "page oracle", "page dreamer", "page walker",
+    "page singer", "page dancer", "garden of order", "garden of detail",
+    "garden of care", "garden of craft", "mountain priest",
+    "mountain priestess", "mountain mystic", "mountain seer",
+    "mountain oracle", "mountain dreamer", "mountain walker",
+    "mountain singer", "mountain dancer", "root sage", "leaf sage",
+    "seed sage", "stem sage", "vine sage", "branch sage", "root oracle",
+    "leaf oracle", "seed oracle", "stem oracle", "vine oracle",
+    "branch oracle", "herb witch", "herb hermit", "sacred craftsman",
+    "sacred craftswoman", "attentive one",
+]
+
+# ─── Libra (Tula) — Air / Venus / peacemaker, mirror, harmony ──────
+LIB = [
+    "peacemaker", "bridge soul", "scale keeper", "harmony singer",
+    "harmony dancer", "harmony mystic", "harmony seer", "harmony oracle",
+    "harmony priest", "harmony dreamer", "harmony walker", "balance keeper",
+    "balance singer", "balance dancer", "balance mystic", "balance seer",
+    "balance oracle", "balance priest", "balance dreamer", "balance walker",
+    "venus-touched", "beauty walker", "beauty singer", "beauty dancer",
+    "beauty mystic", "beauty seer", "beauty oracle", "beauty priest",
+    "beauty dreamer", "beauty keeper", "art mystic", "art seer",
+    "art priest", "art oracle", "art dreamer", "art singer",
+    "art dancer", "art walker", "art keeper", "art warden",
+    "mirror seer", "mirror walker", "mirror mystic", "mirror oracle",
+    "mirror priest", "mirror dreamer", "mirror singer", "mirror dancer",
+    "mediator", "council keeper", "council walker", "council priest",
+    "council oracle", "council mystic", "council seer", "council dreamer",
+    "council singer", "council dancer", "partner keeper", "partner walker",
+    "partner mystic", "partner seer", "partner oracle", "partner priest",
+    "partner dreamer", "partner singer", "partner dancer", "ally keeper",
+    "ally mystic", "twin-balance", "balance between", "between walker",
+    "between seer", "between dreamer", "between mystic", "between oracle",
+    "between priest", "gentle judge", "gentle mediator", "gentle peacemaker",
+    "gentle mirror", "soft mirror", "soft peacemaker", "soft balance",
+    "soft harmony", "weave keeper", "weave seer", "weave mystic",
+    "weave priest", "weave oracle", "weave dreamer", "weave walker",
+    "weave singer", "weave dancer", "fabric keeper", "fabric mystic",
+    "fabric seer", "fabric oracle", "fabric priest", "fabric dreamer",
+    "fabric walker", "fabric singer", "fabric dancer", "harmony witness",
+    "balance witness", "soft seer", "soft oracle", "soft dreamer",
+]
+
+# ─── Scorpio (Vrishchika) — Water / Pluto-Mars / depth, shadow ─────
+SCO = [
+    "mystic", "shadow walker", "depth keeper", "secret keeper",
+    "transformation priest", "transformation mystic", "transformation seer",
+    "transformation oracle", "transformation dreamer", "transformation walker",
+    "transformation singer", "transformation dancer", "transformation witness",
+    "deep diver", "deep walker", "deep mystic", "deep seer", "deep oracle",
+    "deep priest", "deep dreamer", "deep singer", "deep dancer",
+    "pluto-touched", "mars-touched", "scorpion-souled", "scorpion walker",
+    "scorpion mystic", "scorpion seer", "scorpion oracle", "scorpion priest",
+    "scorpion dreamer", "scorpion singer", "scorpion dancer",
+    "scorpion witness", "alchemist", "alchemy walker", "alchemy mystic",
+    "alchemy seer", "alchemy oracle", "alchemy priest", "alchemy dreamer",
+    "alchemy singer", "alchemy dancer", "ash keeper", "ash walker",
+    "ash mystic", "ash seer", "ash oracle", "ash priest", "ash dreamer",
+    "ash singer", "ash dancer", "phoenix-souled", "phoenix walker",
+    "phoenix mystic", "phoenix seer", "phoenix oracle", "phoenix priest",
+    "phoenix dreamer", "phoenix singer", "phoenix dancer",
+    "phoenix witness", "midnight walker", "midnight mystic", "midnight seer",
+    "midnight oracle", "midnight priest", "midnight dreamer",
+    "midnight singer", "midnight dancer", "midnight witness", "cave dweller",
+    "cave walker", "cave mystic", "cave seer", "cave oracle", "cave priest",
+    "cave dreamer", "cave singer", "cave dancer", "river of rebirth",
+    "river walker", "river mystic", "river seer", "river oracle",
+    "river priest", "river dreamer", "river singer", "river dancer",
+    "river witness", "underworld walker", "underworld mystic",
+    "underworld seer", "underworld oracle", "underworld priest",
+    "underworld dreamer", "root of mystery", "root of depth",
+    "root of dark", "root of rebirth", "deep-eyed seer", "deep-eyed mystic",
+    "dark-eyed seer", "dark-eyed mystic", "shadow priest", "shadow oracle",
+    "shadow dreamer",
+]
+
+# ─── Sagittarius (Dhanu) — Fire / Jupiter / seeker, archer, road ──
+SAG = [
+    "seeker", "wanderer", "archer", "pilgrim", "horizon walker",
+    "horizon mystic", "horizon seer", "horizon oracle", "horizon priest",
+    "horizon dreamer", "horizon singer", "horizon dancer",
+    "jupiter-touched", "archer-souled", "archer walker", "archer mystic",
+    "archer seer", "archer oracle", "archer priest", "archer dreamer",
+    "archer singer", "archer dancer", "quiver keeper", "bow keeper",
+    "arrow keeper", "bow singer", "bow dancer", "bow mystic", "bow seer",
+    "bow oracle", "bow priest", "bow dreamer", "sky walker", "sky mystic",
+    "sky seer", "sky oracle", "sky priest", "sky dreamer", "sky singer",
+    "sky dancer", "sky witness", "truth keeper", "truth walker",
+    "truth singer", "truth dancer", "truth mystic", "truth seer",
+    "truth oracle", "truth priest", "truth dreamer", "truth witness",
+    "philosopher", "wisdom walker", "wisdom mystic", "wisdom seer",
+    "wisdom oracle", "wisdom priest", "wisdom dreamer", "wisdom singer",
+    "wisdom dancer", "wisdom keeper", "wisdom witness", "road walker",
+    "road mystic", "road seer", "road oracle", "road priest",
+    "road dreamer", "road singer", "road dancer", "road keeper",
+    "road witness", "journey keeper", "journey walker", "journey mystic",
+    "journey seer", "journey oracle", "journey priest", "journey dreamer",
+    "journey singer", "journey dancer", "journey witness",
+    "traveler priest", "traveler mystic", "traveler seer",
+    "traveler oracle", "traveler dreamer", "scholar pilgrim", "free walker",
+    "free mystic", "free seer", "free oracle", "free priest",
+    "free dreamer", "free singer", "free dancer", "expansive one",
+    "expansive walker", "expansive mystic", "expansive seer",
+    "expansive oracle", "expansive priest", "expansive dreamer",
+    "expansive singer", "expansive dancer", "far-eyed seer",
+    "far-eyed mystic",
+]
+
+# ─── Capricorn (Makara) — Earth / Saturn / builder, mountain, time ─
+CAP = [
+    "ancient builder", "keeper", "mountain priest", "mountain priestess",
+    "mountain mystic", "mountain seer", "mountain oracle",
+    "mountain dreamer", "mountain singer", "mountain dancer",
+    "mountain walker", "mountain witness", "saturn-touched", "goat-souled",
+    "goat walker", "goat mystic", "goat seer", "goat oracle", "goat priest",
+    "goat dreamer", "goat singer", "goat dancer", "summit walker",
+    "summit mystic", "summit seer", "summit oracle", "summit priest",
+    "summit dreamer", "summit singer", "summit dancer", "summit witness",
+    "stone keeper", "stone singer", "stone dancer", "stone mystic",
+    "stone seer", "stone oracle", "stone priest", "stone dreamer",
+    "stone witness", "foundation keeper", "foundation walker",
+    "foundation mystic", "foundation seer", "foundation oracle",
+    "foundation priest", "foundation dreamer", "foundation singer",
+    "foundation dancer", "foundation witness", "pillar keeper",
+    "pillar walker", "pillar mystic", "pillar seer", "pillar oracle",
+    "pillar priest", "pillar dreamer", "pillar singer", "pillar dancer",
+    "pillar witness", "time keeper", "time walker", "time mystic",
+    "time seer", "time oracle", "time priest", "time dreamer",
+    "time singer", "time dancer", "time witness", "ancestor keeper",
+    "ancestor singer", "ancestor dancer", "ancestor mystic",
+    "ancestor seer", "ancestor oracle", "ancestor priest",
+    "ancestor dreamer", "ancestor witness", "elder", "elder walker",
+    "elder mystic", "elder seer", "elder oracle", "elder priest",
+    "elder dreamer", "elder singer", "elder dancer", "elder witness",
+    "lineage keeper", "lineage walker", "lineage mystic", "lineage seer",
+    "lineage oracle", "lineage priest", "lineage dreamer", "lineage singer",
+    "lineage dancer", "lineage witness", "patient builder", "patient elder",
+    "patient mountain", "slow stone", "slow elder", "slow ancestor",
+    "slow lineage",
+]
+
+# ─── Aquarius (Kumbha) — Air / Uranus-Saturn / visionary, future ───
+AQU = [
+    "visionary", "star dreamer", "water-bearer", "future walker",
+    "future mystic", "future seer", "future oracle", "future priest",
+    "future dreamer", "future singer", "future dancer", "future witness",
+    "uranus-touched", "electric one", "electric walker", "electric mystic",
+    "electric seer", "electric oracle", "electric priest",
+    "electric dreamer", "electric singer", "electric dancer",
+    "electric witness", "lightning thought", "lightning walker",
+    "lightning mystic", "lightning seer", "lightning oracle",
+    "lightning priest", "lightning dreamer", "lightning singer",
+    "lightning dancer", "lightning witness", "community keeper",
+    "community walker", "community mystic", "community seer",
+    "community oracle", "community priest", "community dreamer",
+    "community singer", "community dancer", "community witness",
+    "sky-tribe walker", "sky-tribe mystic", "sky-tribe seer",
+    "sky-tribe oracle", "sky-tribe priest", "sky-tribe dreamer",
+    "sky-tribe singer", "sky-tribe dancer", "idea keeper", "idea walker",
+    "idea mystic", "idea seer", "idea oracle", "idea priest",
+    "idea dreamer", "idea singer", "idea dancer", "idea witness",
+    "vision keeper", "vision walker", "vision mystic", "vision seer",
+    "vision oracle", "vision priest", "vision dreamer", "vision singer",
+    "vision dancer", "vision witness", "water-bearer walker",
+    "water-bearer mystic", "water-bearer seer", "water-bearer oracle",
+    "water-bearer priest", "water-bearer dreamer", "water-bearer singer",
+    "water-bearer dancer", "sky-flame", "sky-spark", "sky-wind",
+    "sky-breath", "sky-storm", "sky-quiet", "sky-listener",
+    "sky-traveler", "revolution mystic", "revolution walker",
+    "revolution seer", "revolution oracle", "revolution priest",
+    "revolution dreamer", "revolution singer", "revolution dancer",
+    "revolution witness", "dream-of-future", "dream-of-tomorrow",
+    "dream-of-many", "dream-of-all", "tomorrow keeper", "tomorrow walker",
+    "tomorrow mystic", "tomorrow seer", "tomorrow oracle",
+    "tomorrow priest",
+]
+
+# ─── Pisces (Meena) — Water / Neptune-Jupiter / dream, ocean, mist ─
+PIS = [
+    "dreamer", "mystic healer", "ocean walker", "ocean mystic",
+    "ocean seer", "ocean oracle", "ocean priest", "ocean dreamer",
+    "ocean singer", "ocean dancer", "ocean witness", "neptune-touched",
+    "jupiter-touched", "fish-souled", "fish walker", "fish mystic",
+    "fish seer", "fish oracle", "fish priest", "fish dreamer",
+    "fish singer", "fish dancer", "dream walker", "dream mystic",
+    "dream seer", "dream oracle", "dream priest", "dream dreamer",
+    "dream singer", "dream dancer", "dream keeper", "dream witness",
+    "water mystic", "water walker", "water seer", "water oracle",
+    "water priest", "water dreamer", "water singer", "water dancer",
+    "water witness", "water keeper", "mist walker", "mist mystic",
+    "mist seer", "mist oracle", "mist priest", "mist dreamer",
+    "mist singer", "mist dancer", "mist witness", "soul-deep",
+    "soul mystic", "soul walker", "soul seer", "soul oracle",
+    "soul priest", "soul dreamer", "soul singer", "soul dancer",
+    "soul witness", "compassion walker", "compassion mystic",
+    "compassion seer", "compassion oracle", "compassion priest",
+    "compassion dreamer", "compassion singer", "compassion dancer",
+    "compassion witness", "twilight walker", "twilight mystic",
+    "twilight seer", "twilight oracle", "twilight priest",
+    "twilight dreamer", "twilight singer", "twilight dancer",
+    "twilight witness", "between-worlds walker", "between-worlds mystic",
+    "between-worlds seer", "between-worlds oracle", "between-worlds priest",
+    "between-worlds dreamer", "between-worlds singer",
+    "between-worlds dancer", "between-worlds witness", "tide-of-souls",
+    "tide-of-dreams", "tide-of-mists", "tide-of-mercy", "sea-mother",
+    "sea-father", "sea-priest", "sea-priestess", "sea-mystic",
+    "sea-seer", "sea-oracle", "sea-dreamer", "sea-singer", "sea-dancer",
+    "salt dreamer", "salt mystic", "salt seer", "salt priest",
+]
+
+
+MYSTIC_VOCAB: dict[str, list[str]] = {
+    "Ari": ARI, "Tau": TAU, "Gem": GEM, "Can": CAN, "Leo": LEO,
+    "Vir": VIR, "Lib": LIB, "Sco": SCO, "Sag": SAG, "Cap": CAP,
+    "Aqu": AQU, "Pis": PIS,
+}
+
+
+def select_mystic_words(
+    sun_sign_abbr: str,
+    seed: str,
+    count: int = 25,
+) -> list[str]:
+    """Pick a deterministic subset of mystic words for one user.
+
+    The user only ever sees the model's prose, not these words directly.
+    The point is to give the model a *different palette* per user so two
+    users with the same sign still get different word choices.
+    """
+    pool = MYSTIC_VOCAB.get(sun_sign_abbr, [])
+    if not pool:
+        return []
+    n = len(pool)
+    h = int(hashlib.sha256(seed.encode()).hexdigest(), 16)
+    start = h % n
+    return [pool[(start + i) % n] for i in range(min(count, n))]
