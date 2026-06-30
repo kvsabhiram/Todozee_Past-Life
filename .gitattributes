@@ -1,0 +1,7 @@
+# Force LF on shell/terraform templates. On Windows, git's autocrlf would
+# otherwise rewrite these to CRLF on checkout, which changes the rendered
+# user_data hash and makes Terraform want to destroy+rebuild the running
+# GPU instance. Keep them LF everywhere.
+*.sh   text eol=lf
+*.tpl  text eol=lf
+*.tf   text eol=lf
