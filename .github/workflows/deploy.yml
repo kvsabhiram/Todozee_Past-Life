@@ -15,6 +15,13 @@ name: Deploy
 on:
   push:
     branches: [main]
+    # Infra/docs-only changes don't affect the running app, so skip the
+    # deploy (and its service restart) when only these paths change.
+    paths-ignore:
+      - 'terraform/**'
+      - '**.md'
+      - '.gitattributes'
+      - '.gitignore'
   workflow_dispatch: {}
 
 concurrency:

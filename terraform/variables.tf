@@ -70,3 +70,9 @@ variable "ssh_allowed_cidr" {
   type        = string
   default     = "0.0.0.0/0"
 }
+
+variable "log_retention_days" {
+  description = "Retention (in days) for the CloudWatch log groups the CW agent ships to. Keeps storage cost bounded."
+  type        = number
+  default     = 30
+}
