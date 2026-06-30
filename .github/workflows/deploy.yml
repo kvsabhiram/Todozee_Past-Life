@@ -40,6 +40,14 @@ jobs:
     name: Deploy to EC2
     needs: ci # gate: deploy only runs if the CI job succeeds
     runs-on: ubuntu-latest
+    # Production gate. The "production" GitHub Environment carries the
+    # protection rules (required reviewer + branch policy) configured in
+    # repo Settings -> Environments. Until a reviewer rule is added the
+    # environment exists but does not block; once added, each deploy to
+    # main pauses here for manual approval.
+    environment:
+      name: production
+      url: https://pastlife.chatbucket.chat
     steps:
       - name: Deploy over SSH
         uses: appleboy/ssh-action@v1.0.3
