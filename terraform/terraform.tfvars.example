@@ -1,0 +1,15 @@
+# Copy to terraform.tfvars and adjust as needed. All values have sane
+# defaults in variables.tf — override only what you need.
+
+# region           = "ap-south-1"
+# instance_type    = "g5.xlarge"
+# domain           = "pastlife.chatbucket.chat"
+# acme_email       = "udathak@gmail.com"
+# git_ref          = "main"
+
+# Lock SSH to your IP for production, e.g.:
+# ssh_allowed_cidr = "203.0.113.4/32"
+
+# google/gemma-4-E2B-it is UNGATED, so a token is NOT required. Provide one
+# only if it later becomes gated or to avoid anonymous download rate limits:
+# hf_token         = "hf_xxx"
