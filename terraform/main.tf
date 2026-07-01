@@ -217,3 +217,48 @@ resource "aws_cloudwatch_metric_alarm" "cpu_high" {
     InstanceId = aws_instance.this.id
   }
 }
+
+# ─────────────────────────────────────────────────────────────────────
+# GPU memory alarm + notifications
+# This box co-hosts Past-Life + Palm-Reader on one A10G (~23GB), so free
+# GPU memory is tight. Alarm on the CloudWatch-agent metric
+# nvidia_smi_memory_used (published to the TodozeePastLife namespace by
+# user_data step 8) to catch pre-OOM pressure. Notifications go to an SNS
+# topic; add an email endpoint via var.alarm_email (confirm it manually).
+# ─────────────────────────────────────────────────────────────────────
+resource "aws_sns_topic" "alerts" {
+  name = "${var.project_name}-alerts"
+}
+
+resource "aws_sns_topic_subscription" "alerts_email" {
+  count     = var.alarm_email == "" ? 0 : 1
+  topic_arn = aws_sns_topic.alerts.arn
+  protocol  = "email"
+  endpoint  = var.alarm_email
+  # NOTE: email subscriptions require the recipient to click AWS's
+  # confirmation link; Terraform cannot auto-confirm (stays "pending").
+}
+
+resource "aws_cloudwatch_metric_alarm" "gpu_memory_high" {
+  alarm_name          = "${var.project_name}-gpu-memory-high"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = 3
+  datapoints_to_alarm = 3
+  metric_name         = "nvidia_smi_memory_used"
+  namespace           = "TodozeePastLife" # matches the CW-agent namespace in user_data
+  period              = 60
+  statistic           = "Maximum"
+  threshold           = var.gpu_memory_alarm_threshold_mib
+  treat_missing_data  = "notBreaching"
+  alarm_description   = "GPU memory > ${var.gpu_memory_alarm_threshold_mib} MiB on the A10G (co-hosts Past-Life + Palm-Reader). Risk of CUDA OOM."
+  # All four dimensions must match what the CW agent publishes, or the
+  # alarm never binds to the metric.
+  dimensions = {
+    InstanceId = aws_instance.this.id
+    name       = var.gpu_name
+    index      = "0"
+    arch       = var.gpu_arch
+  }
+  alarm_actions = [aws_sns_topic.alerts.arn]
+  ok_actions    = [aws_sns_topic.alerts.arn]
+}

@@ -77,6 +77,31 @@ variable "log_retention_days" {
   default     = 30
 }
 
+# ─── Alerting (SNS + GPU-memory alarm) ────────────────────────────────
+variable "alarm_email" {
+  description = "Email subscribed to the alarm SNS topic. Must be confirmed via the AWS email link (Terraform can't auto-confirm). Set to \"\" to skip the email subscription."
+  type        = string
+  default     = "udathak@gmail.com"
+}
+
+variable "gpu_memory_alarm_threshold_mib" {
+  description = "Fire the GPU-memory alarm above this many MiB used. A10G total is ~23028 MiB; 22000 leaves ~1GB before CUDA OOM."
+  type        = number
+  default     = 22000
+}
+
+variable "gpu_name" {
+  description = "GPU 'name' dimension the CloudWatch agent publishes (must match the instance_type's GPU). g5.xlarge = NVIDIA A10G."
+  type        = string
+  default     = "NVIDIA A10G"
+}
+
+variable "gpu_arch" {
+  description = "GPU 'arch' dimension published by the CloudWatch agent. A10G = Ampere."
+  type        = string
+  default     = "Ampere"
+}
+
 # ─────────────────────────────────────────────────────────────────────
 # Co-hosted Palm-Reader service (consolidated onto this same GPU box).
 # Palm-Reader was merged onto the Past-Life box to share one A10G. These
