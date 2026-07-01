@@ -42,3 +42,8 @@ output "palmreader_health_url" {
   description = "Co-hosted Palm-Reader health endpoint (if enabled)."
   value       = var.palmreader_enabled ? "https://${var.palmreader_domain}/health" : "disabled"
 }
+
+output "alerts_topic_arn" {
+  description = "SNS topic that CloudWatch alarms (incl. GPU memory) publish to. Confirm the email subscription to receive alerts."
+  value       = aws_sns_topic.alerts.arn
+}
