@@ -120,6 +120,91 @@ systemctl daemon-reload
 systemctl enable ${project_name}.service
 systemctl start ${project_name}.service
 
+# ── 6b. Co-hosted Palm-Reader service (consolidated onto this box) ─────
+# Palm-Reader shares this A10G. It targets Python 3.10 (the AMI default),
+# so — unlike the app above — it does NOT use the deadsnakes 3.13 venv.
+# Gated by palmreader_enabled so this box can be built without it.
+if [ "${palmreader_enabled}" = "true" ]; then
+  echo "=== provisioning co-hosted Palm-Reader ==="
+  PR_APP_DIR=/opt/${palmreader_project_name}
+  PR_REPO_DIR=$${PR_APP_DIR}/repo
+  PR_VENV_DIR=$${PR_APP_DIR}/venv
+  PR_HF_HOME=$${PR_APP_DIR}/hf-cache
+  PR_CACHE=$${PR_APP_DIR}/model-cache
+  PR_LOG_DIR=$${PR_REPO_DIR}/logs
+  PR_STORAGE_DIR=$${PR_REPO_DIR}/request_logs
+
+  mkdir -p "$${PR_APP_DIR}" "$${PR_HF_HOME}" "$${PR_CACHE}"
+
+  git config --system --add safe.directory "$${PR_REPO_DIR}" || true
+  git clone "${palmreader_repo_url}" "$${PR_REPO_DIR}"
+  git -C "$${PR_REPO_DIR}" checkout "${palmreader_git_ref}"
+  mkdir -p "$${PR_LOG_DIR}" "$${PR_STORAGE_DIR}"
+
+  python3.10 -m venv "$${PR_VENV_DIR}"
+  "$${PR_VENV_DIR}/bin/pip" install --upgrade pip wheel setuptools
+  TORCH_INDEX="${torch_cuda_index}"
+  if [ -n "$${TORCH_INDEX}" ]; then
+    "$${PR_VENV_DIR}/bin/pip" install --index-url "$${TORCH_INDEX}" torch torchvision
+  else
+    "$${PR_VENV_DIR}/bin/pip" install torch torchvision
+  fi
+  if [ -f "$${PR_REPO_DIR}/requirements.lock.txt" ]; then
+    "$${PR_VENV_DIR}/bin/pip" install -r "$${PR_REPO_DIR}/requirements.lock.txt"
+  else
+    "$${PR_VENV_DIR}/bin/pip" install -r "$${PR_REPO_DIR}/requirements.txt"
+  fi
+
+  cat > "$${PR_APP_DIR}/app.env" <<PRENV
+API_PORT=${palmreader_app_port}
+MODEL_ID=google/gemma-4-E2B-it
+LOG_DIR=$${PR_LOG_DIR}
+STORAGE_DIR=$${PR_STORAGE_DIR}
+HF_HOME=$${PR_HF_HOME}
+XDG_CACHE_HOME=$${PR_CACHE}
+PYTHONUNBUFFERED=1
+TOKENIZERS_PARALLELISM=false
+HF_TOKEN=${palmreader_hf_token}
+PRENV
+  chmod 600 "$${PR_APP_DIR}/app.env"
+  chown -R ubuntu:ubuntu "$${PR_APP_DIR}"
+
+  cat > /etc/systemd/system/${palmreader_project_name}.service <<PRUNIT
+[Unit]
+Description=Todozee Palm-Reader (FastAPI + local Gemma 4 E2B, GPU)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=$${PR_REPO_DIR}
+EnvironmentFile=$${PR_APP_DIR}/app.env
+ExecStart=$${PR_VENV_DIR}/bin/python palm_astrology_api.py
+Restart=on-failure
+RestartSec=10
+TimeoutStartSec=0
+
+[Install]
+WantedBy=multi-user.target
+PRUNIT
+
+  systemctl daemon-reload
+  systemctl enable ${palmreader_project_name}.service
+  systemctl start ${palmreader_project_name}.service
+
+  # Authorize the Palm-Reader CI/CD deploy key so its own GitHub Actions
+  # pipeline can SSH-deploy to this shared box (its private key is the
+  # Palm-Reader repo's EC2_SSH_KEY secret; EC2_HOST points at this EIP).
+  install -d -m 700 -o ubuntu -g ubuntu /home/ubuntu/.ssh
+  PR_AK=/home/ubuntu/.ssh/authorized_keys
+  touch "$${PR_AK}"
+  if ! grep -qF "${palmreader_deploy_public_key}" "$${PR_AK}"; then
+    echo "${palmreader_deploy_public_key}" >> "$${PR_AK}"
+  fi
+  chown ubuntu:ubuntu "$${PR_AK}"; chmod 600 "$${PR_AK}"
+fi
+
 # ── 7. Caddy reverse proxy (auto-HTTPS) ───────────────────────────────
 apt-get install -y debian-keyring debian-archive-keyring apt-transport-https
 curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' \
@@ -139,6 +224,21 @@ ${domain} {
     reverse_proxy 127.0.0.1:${app_port}
 }
 EOF
+
+# Second vhost for the co-hosted Palm-Reader (larger body limit for palm
+# image uploads). Appended only when Palm-Reader is enabled.
+if [ "${palmreader_enabled}" = "true" ]; then
+  cat >> /etc/caddy/Caddyfile <<EOF
+
+${palmreader_domain} {
+    encode zstd gzip
+    request_body {
+        max_size ${palmreader_max_body}
+    }
+    reverse_proxy 127.0.0.1:${palmreader_app_port}
+}
+EOF
+fi
 
 systemctl enable caddy
 systemctl restart caddy
