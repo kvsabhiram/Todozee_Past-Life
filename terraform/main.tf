@@ -148,6 +148,17 @@ resource "aws_instance" "this" {
     app_port         = var.app_port
     torch_cuda_index = var.torch_cuda_index
     hf_token         = var.hf_token
+
+    # Co-hosted Palm-Reader (consolidated onto this box)
+    palmreader_enabled           = var.palmreader_enabled
+    palmreader_project_name      = var.palmreader_project_name
+    palmreader_repo_url          = var.palmreader_repo_url
+    palmreader_git_ref           = var.palmreader_git_ref
+    palmreader_domain            = var.palmreader_domain
+    palmreader_app_port          = var.palmreader_app_port
+    palmreader_max_body          = var.palmreader_max_body
+    palmreader_hf_token          = var.palmreader_hf_token
+    palmreader_deploy_public_key = var.palmreader_deploy_public_key
   })
 
   root_block_device {

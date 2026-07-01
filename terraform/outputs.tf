@@ -37,3 +37,8 @@ output "health_url_ip" {
   description = "Health endpoint reachable by IP over HTTP before DNS propagates."
   value       = "http://${aws_eip.this.public_ip}/health"
 }
+
+output "palmreader_health_url" {
+  description = "Co-hosted Palm-Reader health endpoint (if enabled)."
+  value       = var.palmreader_enabled ? "https://${var.palmreader_domain}/health" : "disabled"
+}

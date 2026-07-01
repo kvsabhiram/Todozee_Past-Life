@@ -76,3 +76,67 @@ variable "log_retention_days" {
   type        = number
   default     = 30
 }
+
+# ─────────────────────────────────────────────────────────────────────
+# Co-hosted Palm-Reader service (consolidated onto this same GPU box).
+# Palm-Reader was merged onto the Past-Life box to share one A10G. These
+# variables let the bootstrap also provision the Palm-Reader app (its own
+# venv, systemd unit, Caddy vhost) so the consolidated box is fully
+# reproducible from Terraform. Set palmreader_enabled=false to opt out.
+# NOTE: Palm-Reader targets Python 3.10 (the AMI default), unlike this
+# repo's own app which uses 3.13.
+# ─────────────────────────────────────────────────────────────────────
+variable "palmreader_enabled" {
+  description = "Whether to also provision the co-hosted Palm-Reader service on this box."
+  type        = bool
+  default     = true
+}
+
+variable "palmreader_project_name" {
+  description = "Name used for the Palm-Reader app dir (/opt/<name>) and systemd unit (<name>.service)."
+  type        = string
+  default     = "todozee-palm-reader"
+}
+
+variable "palmreader_repo_url" {
+  description = "Palm-Reader git repository cloned onto the instance."
+  type        = string
+  default     = "https://github.com/kvsabhiram/Todozee_Palm-Reader.git"
+}
+
+variable "palmreader_git_ref" {
+  description = "Palm-Reader git branch/tag/commit to check out."
+  type        = string
+  default     = "main"
+}
+
+variable "palmreader_domain" {
+  description = "Public hostname Caddy serves for Palm-Reader with auto-HTTPS."
+  type        = string
+  default     = "palmreader.chatbucket.chat"
+}
+
+variable "palmreader_app_port" {
+  description = "Port the Palm-Reader FastAPI app listens on (its app.env API_PORT)."
+  type        = number
+  default     = 7003
+}
+
+variable "palmreader_max_body" {
+  description = "Caddy request_body max_size for Palm-Reader (palm image uploads)."
+  type        = string
+  default     = "25MB"
+}
+
+variable "palmreader_hf_token" {
+  description = "Optional Hugging Face token for Palm-Reader. gemma-4-E2B-it is UNGATED so leave empty."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "palmreader_deploy_public_key" {
+  description = "SSH public key for the Palm-Reader CI/CD deploy pipeline (added to ubuntu's authorized_keys so its GitHub Actions can SSH-deploy to this box). Keep the matching private key as the Palm-Reader repo's EC2_SSH_KEY secret."
+  type        = string
+  default     = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFe4hvtETq2glkBc1ZB6WgaJszVG7Fu+ZO18aUweCOtv palmreader-cicd-pastlife"
+}
